@@ -4,13 +4,16 @@ package server
 import (
 	"net/http"
 	"time"
+
+	"github.com/hhow09/page-insight-tool/internal/config"
 )
 
 // Run listens on addr and blocks until the server stops or returns an error.
 // Phase 1 exposes only GET /health (200 OK, JSON body). Static UI is added later.
-func Run(addr string) error {
+func Run(addr string, config *config.Config) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
+	mux.HandleFunc("/api/analyze", GetResolveHandler(config))
 
 	srv := &http.Server{
 		Addr:              addr,
