@@ -15,6 +15,9 @@ func Run(addr string, config *config.Config) error {
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/api/analyze", GetResolveHandler(config))
 
+	fs := http.FileServer(http.Dir("frontend/dist"))
+	mux.Handle("/", fs)
+
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           mux,
