@@ -23,9 +23,8 @@ type Result struct {
 	Status   int
 }
 
-// Fetch retrieves the URL body. Use [context.Context] for an overall deadline.
-// If cfg is nil, [config.Default] is used.
-func Fetch(ctx context.Context, raw string, cfg *config.FetchConfig) (*Result, error) {
+// Fetch retrieves the body, status, and final redirected URL from the given URL.
+func Fetch(ctx context.Context, client *http.Client, raw string, cfg *config.FetchConfig) (*Result, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return nil, &FetchError{HTTPStatus: 0, Message: fmt.Sprintf("invalid URL: %v", err)}
@@ -41,9 +40,6 @@ func Fetch(ctx context.Context, raw string, cfg *config.FetchConfig) (*Result, e
 	if err != nil {
 		return nil, &FetchError{HTTPStatus: 0, Message: fmt.Sprintf("build request: %v", err)}
 	}
-	req.Header.Set("User-Agent", cfg.UserAgent)
-
-	client := newHTTPClient(cfg)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, mapDoError(err)

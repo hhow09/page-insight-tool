@@ -23,17 +23,13 @@ type Summary struct {
 }
 
 // Summarize resolves raw hrefs against page, counts internal vs external, then probes unique http(s) URLs.
-func Summarize(ctx context.Context, page *url.URL, rawHrefs []string, lc *config.LinkConfig) (*Summary, error) {
-	link := config.Default().Link
-	if lc != nil {
-		link = *lc
-	}
-	out, navigableURLs, err := collectClassifiedUnique(page, rawHrefs, link.MaxURLsToCheck)
+func Summarize(ctx context.Context, client *http.Client, page *url.URL, rawHrefs []string, lc *config.LinkConfig) (*Summary, error) {
+	out, navigableURLs, err := collectClassifiedUnique(page, rawHrefs, lc.MaxURLsToCheck)
 	if err != nil {
 		return nil, err
 	}
 
-	inAccessibleLinks, probePartial, err := runProbes(ctx, navigableURLs, &link)
+	inAccessibleLinks, probePartial, err := runProbes(ctx, client, navigableURLs, lc)
 	if probePartial {
 		out.PartialCheck = true
 	}
@@ -58,7 +54,7 @@ func collectClassifiedUnique(page *url.URL, rawHrefs []string, maxURLsToCheck in
 	if page == nil {
 		return nil, nil, &url.Error{Op: "linker.collectClassifiedUnique", URL: "", Err: errors.New("nil page URL")}
 	}
-	slog.Debug("rawHrefs collected", "count", len(rawHrefs), "hrefs", rawHrefs)
+	slog.Debug("collectClassifiedUnique", "page", page.String(), "count", len(rawHrefs), "hrefs", rawHrefs)
 	out := &Summary{}
 	seen := make(map[string]struct{})
 	var unique []string
@@ -111,12 +107,11 @@ func collectClassifiedUnique(page *url.URL, rawHrefs []string, maxURLsToCheck in
 }
 
 // runProbeWorkerPool runs HEAD/GET accessibility checks for navigableURLs with a bounded worker pool.
-func runProbes(ctx context.Context, navigableURLs []string, lc *config.LinkConfig) (inaccessible int, partial bool, err error) {
+func runProbes(ctx context.Context, client *http.Client, navigableURLs []string, lc *config.LinkConfig) (inaccessible int, partial bool, err error) {
 	if len(navigableURLs) == 0 {
 		return 0, false, nil
 	}
 	slog.Debug("navigableURLs collected", "count", len(navigableURLs), "urls", navigableURLs)
-	client := &http.Client{Timeout: 2 * lc.PerLinkTimeout} // headroom for TLS + body
 
 	jobs := make(chan string)
 	var wg sync.WaitGroup

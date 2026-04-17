@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/hhow09/page-insight-tool/internal/config"
+	"github.com/hhow09/page-insight-tool/internal/httpclient"
 )
 
 func TestSummarize_internalExternal_and_inaccessible(t *testing.T) {
@@ -32,8 +32,6 @@ func TestSummarize_internalExternal_and_inaccessible(t *testing.T) {
 	}
 
 	cfg := config.Default()
-	cfg.Link.Workers = 3
-	cfg.Link.PerLinkTimeout = 2 * time.Second
 	cfg.Link.MaxURLsToCheck = 0
 
 	raw := []string{
@@ -43,7 +41,7 @@ func TestSummarize_internalExternal_and_inaccessible(t *testing.T) {
 		"#frag",          // skipped non-navigable
 		remote.URL + "/ok",
 	}
-	rep, err := Summarize(context.Background(), origin, raw, &cfg.Link)
+	rep, err := Summarize(context.Background(), httpclient.New(&cfg.HTTPClient), origin, raw, &cfg.Link)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,8 +72,7 @@ func TestSummarize_maxURLs_cap(t *testing.T) {
 	}
 	cfg := config.Default()
 	cfg.Link.MaxURLsToCheck = 3
-	cfg.Link.Workers = 2
-	rep, err := Summarize(context.Background(), page, hrefs, &cfg.Link)
+	rep, err := Summarize(context.Background(), httpclient.New(&cfg.HTTPClient), page, hrefs, &cfg.Link)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +84,8 @@ func TestSummarize_maxURLs_cap(t *testing.T) {
 
 func TestSummarize_nil_page(t *testing.T) {
 	t.Parallel()
-	_, err := Summarize(context.Background(), nil, []string{"/"}, nil)
+	cfg := config.Default()
+	_, err := Summarize(context.Background(), httpclient.New(&cfg.HTTPClient), nil, []string{"/"}, &cfg.Link)
 	if err == nil {
 		t.Fatal("expected error")
 	}

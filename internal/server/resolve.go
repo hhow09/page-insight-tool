@@ -9,6 +9,7 @@ import (
 	"github.com/hhow09/page-insight-tool/internal/analyzer"
 	"github.com/hhow09/page-insight-tool/internal/config"
 	"github.com/hhow09/page-insight-tool/internal/fetch"
+	"github.com/hhow09/page-insight-tool/internal/httpclient"
 	"github.com/hhow09/page-insight-tool/internal/linker"
 )
 
@@ -41,6 +42,8 @@ type Headings struct {
 }
 
 func GetResolveHandler(cfg *config.Config) http.HandlerFunc {
+	client := httpclient.New(&cfg.HTTPClient)
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -59,7 +62,7 @@ func GetResolveHandler(cfg *config.Config) http.HandlerFunc {
 
 		ctx := r.Context()
 
-		fetchRes, err := fetch.Fetch(ctx, req.URL, &cfg.Fetch)
+		fetchRes, err := fetch.Fetch(ctx, client, req.URL, &cfg.Fetch)
 		if err != nil {
 			writeError(w, http.StatusNotFound, err.Error())
 			return
@@ -72,7 +75,7 @@ func GetResolveHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		summary, err := linker.Summarize(ctx, fetchRes.FinalURL, report.RawHrefs, &cfg.Link)
+		summary, err := linker.Summarize(ctx, client, fetchRes.FinalURL, report.RawHrefs, &cfg.Link)
 		if err != nil {
 			slog.Error("failed to analyze links", "error", err)
 			writeError(w, http.StatusInternalServerError, "failed to analyze links: "+err.Error())

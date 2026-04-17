@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/hhow09/page-insight-tool/internal/config"
 )
@@ -90,9 +89,6 @@ func TestResolve_Success(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	cfg := config.Default()
-	cfg.Fetch.Timeout = 1 * time.Second
-	cfg.Link.PerLinkTimeout = 1 * time.Second
-	cfg.Link.Workers = 2
 
 	handler := GetResolveHandler(cfg)
 

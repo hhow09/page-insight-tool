@@ -13,7 +13,13 @@ import (
 	"time"
 
 	"github.com/hhow09/page-insight-tool/internal/config"
+	"github.com/hhow09/page-insight-tool/internal/httpclient"
 )
+
+func testFetch(ctx context.Context, raw string, cfg *config.Config) (*Result, error) {
+	client := httpclient.New(&cfg.HTTPClient)
+	return Fetch(ctx, client, raw, &cfg.Fetch)
+}
 
 func TestFetch_OK(t *testing.T) {
 	t.Parallel()
@@ -23,9 +29,9 @@ func TestFetch_OK(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := &config.Default().Fetch
+	cfg := config.Default()
 
-	res, err := Fetch(context.Background(), srv.URL, cfg)
+	res, err := testFetch(context.Background(), srv.URL, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,10 +61,10 @@ func TestFetch_redirectFinalURL(t *testing.T) {
 	t.Cleanup(mid.Close)
 	t.Cleanup(final.Close)
 
-	cfg := &config.Default().Fetch
-	cfg.Timeout = 5 * time.Second
+	cfg := config.Default()
+	cfg.HTTPClient.Timeout = 5 * time.Second
 
-	res, err := Fetch(context.Background(), first.URL, cfg)
+	res, err := testFetch(context.Background(), first.URL, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,10 +86,10 @@ func TestFetch_tooManyRedirects(t *testing.T) {
 	}))
 	t.Cleanup(b.Close)
 
-	cfg := &config.Default().Fetch
-	cfg.MaxRedirects = 4
+	cfg := config.Default()
+	cfg.HTTPClient.MaxRedirects = 4
 
-	_, err := Fetch(context.Background(), a.URL, cfg)
+	_, err := testFetch(context.Background(), a.URL, cfg)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -101,9 +107,8 @@ func TestFetch_404(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := &config.Default().Fetch
-
-	_, err := Fetch(context.Background(), srv.URL, cfg)
+	cfg := config.Default()
+	_, err := testFetch(context.Background(), srv.URL, cfg)
 	var fe *FetchError
 	if !errors.As(err, &fe) {
 		t.Fatalf("want *FetchError, got %T %v", err, err)
@@ -115,8 +120,8 @@ func TestFetch_404(t *testing.T) {
 
 func TestFetch_invalidScheme(t *testing.T) {
 	t.Parallel()
-	cfg := &config.Default().Fetch
-	_, err := Fetch(context.Background(), "ftp://example.com/", cfg)
+	cfg := config.Default()
+	_, err := testFetch(context.Background(), "ftp://example.com/", cfg)
 	var fe *FetchError
 	if !errors.As(err, &fe) {
 		t.Fatalf("got %T %v", err, err)
@@ -134,13 +139,13 @@ func TestFetch_contextDeadline(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := &config.Default().Fetch
-	cfg.Timeout = time.Hour
+	cfg := config.Default()
+	cfg.HTTPClient.Timeout = time.Hour
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	_, err := Fetch(ctx, srv.URL, cfg)
+	_, err := testFetch(ctx, srv.URL, cfg)
 	if err == nil {
 		t.Fatal("expected timeout")
 	}
@@ -164,10 +169,10 @@ func TestFetch_maxBodyBytes(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := &config.Default().Fetch
-	cfg.MaxBodyBytes = 100
+	cfg := config.Default()
+	cfg.Fetch.MaxBodyBytes = 100
 
-	_, err := Fetch(context.Background(), srv.URL, cfg)
+	_, err := testFetch(context.Background(), srv.URL, cfg)
 	if err == nil {
 		t.Fatal("expected error from MaxBytesReader")
 	}
@@ -176,7 +181,7 @@ func TestFetch_maxBodyBytes(t *testing.T) {
 // TestFetch_edgeCases covers odd but common HTTP behaviors using httptest
 func TestFetch_edgeCases(t *testing.T) {
 	t.Parallel()
-	cfg := &config.Default().Fetch
+	cfg := config.Default()
 	t.Run("non_html_content_type", func(t *testing.T) {
 		t.Parallel()
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -186,7 +191,7 @@ func TestFetch_edgeCases(t *testing.T) {
 		}))
 		t.Cleanup(srv.Close)
 
-		_, err := Fetch(context.Background(), srv.URL, cfg)
+		_, err := testFetch(context.Background(), srv.URL, cfg)
 		var fe *FetchError
 		if !errors.As(err, &fe) || fe.Message != "Only HTML is supported" {
 			t.Fatalf("got %v, want Only HTML is supported error", err)
@@ -195,7 +200,7 @@ func TestFetch_edgeCases(t *testing.T) {
 
 	t.Run("empty_URL", func(t *testing.T) {
 		t.Parallel()
-		_, err := Fetch(context.Background(), "", cfg)
+		_, err := testFetch(context.Background(), "", cfg)
 		var fe *FetchError
 		if !errors.As(err, &fe) {
 			t.Fatalf("got %T %v", err, err)
@@ -204,7 +209,7 @@ func TestFetch_edgeCases(t *testing.T) {
 
 	t.Run("missing_host", func(t *testing.T) {
 		t.Parallel()
-		_, err := Fetch(context.Background(), "http:///nohost", cfg)
+		_, err := testFetch(context.Background(), "http:///nohost", cfg)
 		var fe *FetchError
 		if !errors.As(err, &fe) || !strings.Contains(fe.Message, "missing a host") {
 			t.Fatalf("got %v", err)
@@ -219,7 +224,7 @@ func TestFetch_edgeCases(t *testing.T) {
 		}))
 		t.Cleanup(srv.Close)
 
-		res, err := Fetch(context.Background(), srv.URL, cfg)
+		res, err := testFetch(context.Background(), srv.URL, cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -238,8 +243,8 @@ func TestFetch_edgeCases(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		}))
 		t.Cleanup(srv.Close)
-		cfg := &config.Default().Fetch
-		res, err := Fetch(context.Background(), srv.URL, cfg)
+		cfg := config.Default()
+		res, err := testFetch(context.Background(), srv.URL, cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -260,8 +265,8 @@ func TestFetch_edgeCases(t *testing.T) {
 			_, _ = w.Write(buf.Bytes())
 		}))
 		t.Cleanup(srv.Close)
-		cfg := &config.Default().Fetch
-		res, err := Fetch(context.Background(), srv.URL, cfg)
+		cfg := config.Default()
+		res, err := testFetch(context.Background(), srv.URL, cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -282,8 +287,8 @@ func TestFetch_edgeCases(t *testing.T) {
 		})
 		srv := httptest.NewServer(mux)
 		t.Cleanup(srv.Close)
-		cfg := &config.Default().Fetch
-		res, err := Fetch(context.Background(), srv.URL+"/start", cfg)
+		cfg := config.Default()
+		res, err := testFetch(context.Background(), srv.URL+"/start", cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -306,8 +311,8 @@ func TestFetch_edgeCases(t *testing.T) {
 			_, _ = w.Write([]byte("ok"))
 		}))
 		t.Cleanup(srv.Close)
-		cfg := &config.Default().Fetch
-		res, err := Fetch(context.Background(), srv.URL+"?q=edge&x=1", cfg)
+		cfg := config.Default()
+		res, err := testFetch(context.Background(), srv.URL+"?q=edge&x=1", cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -331,9 +336,9 @@ func TestFetch_edgeCases(t *testing.T) {
 			_, _ = w.Write([]byte("doc"))
 		}))
 		t.Cleanup(srv.Close)
-		cfg := &config.Default().Fetch
+		cfg := config.Default()
 
-		res, err := Fetch(context.Background(), srv.URL+"/doc#section", cfg)
+		res, err := testFetch(context.Background(), srv.URL+"/doc#section", cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -351,9 +356,9 @@ func TestFetch_edgeCases(t *testing.T) {
 			_, _ = w.Write([]byte(`{"id":1}`))
 		}))
 		t.Cleanup(srv.Close)
-		cfg := &config.Default().Fetch
+		cfg := config.Default()
 
-		res, err := Fetch(context.Background(), srv.URL, cfg)
+		res, err := testFetch(context.Background(), srv.URL, cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -368,9 +373,9 @@ func TestFetch_edgeCases(t *testing.T) {
 			w.WriteHeader(http.StatusNotModified)
 		}))
 		t.Cleanup(srv.Close)
-		cfg := &config.Default().Fetch
+		cfg := config.Default()
 
-		_, err := Fetch(context.Background(), srv.URL, cfg)
+		_, err := testFetch(context.Background(), srv.URL, cfg)
 		var fe *FetchError
 		if !errors.As(err, &fe) || fe.HTTPStatus != http.StatusNotModified {
 			t.Fatalf("want 304 FetchError, got %v", err)
@@ -383,8 +388,8 @@ func TestFetch_edgeCases(t *testing.T) {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		}))
 		t.Cleanup(srv.Close)
-		cfg := &config.Default().Fetch
-		_, err := Fetch(context.Background(), srv.URL, cfg)
+		cfg := config.Default()
+		_, err := testFetch(context.Background(), srv.URL, cfg)
 		var fe *FetchError
 		if !errors.As(err, &fe) || fe.HTTPStatus != http.StatusServiceUnavailable {
 			t.Fatalf("want 503 FetchError, got %v", err)
@@ -407,11 +412,11 @@ func TestFetch_edgeCases(t *testing.T) {
 		t.Cleanup(mid.Close)
 		t.Cleanup(final.Close)
 
-		cfg := &config.Default().Fetch
+		cfg := config.Default()
 
-		cfg.MaxRedirects = 3
+		cfg.HTTPClient.MaxRedirects = 3
 		// Two redirect responses then 200: need MaxRedirects at least 3 for this client policy.
-		res, err := Fetch(context.Background(), first.URL, cfg)
+		res, err := testFetch(context.Background(), first.URL, cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -428,8 +433,8 @@ func TestFetch_integration_realWorld(t *testing.T) {
 		t.Skip("skip network integration tests (run without -short to enable)")
 	}
 
-	cfg := &config.Default().Fetch
-	cfg.Timeout = 30 * time.Second
+	cfg := config.Default()
+	cfg.HTTPClient.Timeout = 30 * time.Second
 
 	cases := []struct {
 		name string
@@ -445,10 +450,10 @@ func TestFetch_integration_realWorld(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+			ctx, cancel := context.WithTimeout(context.Background(), cfg.HTTPClient.Timeout)
 			defer cancel()
 
-			res, err := Fetch(ctx, tc.url, cfg)
+			res, err := testFetch(ctx, tc.url, cfg)
 			if err != nil {
 				t.Fatalf("Fetch: %v", err)
 			}
@@ -466,14 +471,14 @@ func TestFetch_integration_non2xx(t *testing.T) {
 		t.Skip("skip network integration tests (run without -short to enable)")
 	}
 
-	cfg := &config.Default().Fetch
-	cfg.Timeout = 30 * time.Second
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	cfg := config.Default()
+	cfg.HTTPClient.Timeout = 30 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.HTTPClient.Timeout)
 	defer cancel()
 
 	// httpbin.org documents fixed status responses; useful for integration 404/418 checks.
 	const url404 = "https://httpbin.org/status/404"
-	_, err := Fetch(ctx, url404, cfg)
+	_, err := testFetch(ctx, url404, cfg)
 	var fe *FetchError
 	if !errors.As(err, &fe) {
 		t.Fatalf("want *FetchError, got %T %v", err, err)
@@ -482,10 +487,10 @@ func TestFetch_integration_non2xx(t *testing.T) {
 		t.Fatalf("HTTPStatus: got %d want %d", fe.HTTPStatus, http.StatusNotFound)
 	}
 
-	ctx2, cancel2 := context.WithTimeout(context.Background(), cfg.Timeout)
+	ctx2, cancel2 := context.WithTimeout(context.Background(), cfg.HTTPClient.Timeout)
 	defer cancel2()
 	const url418 = "https://httpbin.org/status/418"
-	_, err418 := Fetch(ctx2, url418, cfg)
+	_, err418 := testFetch(ctx2, url418, cfg)
 	var fe418 *FetchError
 	if !errors.As(err418, &fe418) {
 		t.Fatalf("418: want *FetchError, got %T %v", err418, err418)

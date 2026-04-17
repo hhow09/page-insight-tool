@@ -7,10 +7,9 @@ import (
 	"net"
 	"net/url"
 	"strings"
-)
 
-// ErrTooManyRedirects is returned when the HTTP redirect chain exceeds the configured limit.
-var ErrTooManyRedirects = errors.New("too many redirects")
+	"github.com/hhow09/page-insight-tool/internal/httpclient"
+)
 
 // FetchError describes a failed fetch (upstream or transport).
 type FetchError struct {
@@ -21,7 +20,7 @@ type FetchError struct {
 func (e *FetchError) Error() string { return e.Message }
 
 func mapDoError(err error) error {
-	if errors.Is(err, ErrTooManyRedirects) {
+	if errors.Is(err, httpclient.ErrTooManyRedirects) {
 		return &FetchError{HTTPStatus: 0, Message: "too many HTTP redirects"}
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
