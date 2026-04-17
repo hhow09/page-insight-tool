@@ -18,7 +18,7 @@ import (
 func TestFetch_OK(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Type", htmlContentType)
 		_, _ = w.Write([]byte("<html><title>Hi</title></html>"))
 	}))
 	t.Cleanup(srv.Close)
@@ -96,7 +96,8 @@ func TestFetch_tooManyRedirects(t *testing.T) {
 func TestFetch_404(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.NotFound(w, nil)
+		w.Header().Set("Content-Type", htmlContentType)
+		w.WriteHeader(http.StatusNotFound)
 	}))
 	t.Cleanup(srv.Close)
 
@@ -176,6 +177,21 @@ func TestFetch_maxBodyBytes(t *testing.T) {
 func TestFetch_edgeCases(t *testing.T) {
 	t.Parallel()
 	cfg := &config.Default().Fetch
+	t.Run("non_html_content_type", func(t *testing.T) {
+		t.Parallel()
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		}))
+		t.Cleanup(srv.Close)
+
+		_, err := Fetch(context.Background(), srv.URL, cfg)
+		var fe *FetchError
+		if !errors.As(err, &fe) || fe.Message != "Only HTML is supported" {
+			t.Fatalf("got %v, want Only HTML is supported error", err)
+		}
+	})
 
 	t.Run("empty_URL", func(t *testing.T) {
 		t.Parallel()
@@ -198,6 +214,7 @@ func TestFetch_edgeCases(t *testing.T) {
 	t.Run("204_no_content", func(t *testing.T) {
 		t.Parallel()
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", htmlContentType)
 			w.WriteHeader(http.StatusNoContent)
 		}))
 		t.Cleanup(srv.Close)
@@ -217,7 +234,7 @@ func TestFetch_edgeCases(t *testing.T) {
 	t.Run("200_empty_body", func(t *testing.T) {
 		t.Parallel()
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.Header().Set("Content-Type", "text/html")
+			w.Header().Set("Content-Type", htmlContentType)
 			w.WriteHeader(http.StatusOK)
 		}))
 		t.Cleanup(srv.Close)
@@ -260,7 +277,7 @@ func TestFetch_edgeCases(t *testing.T) {
 			http.Redirect(w, r, "/end", http.StatusFound)
 		})
 		mux.HandleFunc("/end", func(w http.ResponseWriter, _ *http.Request) {
-			w.Header().Set("Content-Type", "text/html")
+			w.Header().Set("Content-Type", htmlContentType)
 			_, _ = w.Write([]byte("<html>after-relative</html>"))
 		})
 		srv := httptest.NewServer(mux)
@@ -281,8 +298,9 @@ func TestFetch_edgeCases(t *testing.T) {
 	t.Run("query_string_preserved", func(t *testing.T) {
 		t.Parallel()
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", htmlContentType)
 			if r.URL.Query().Get("q") != "edge" {
-				http.Error(w, "bad query", http.StatusBadRequest)
+				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 			_, _ = w.Write([]byte("ok"))
@@ -301,12 +319,13 @@ func TestFetch_edgeCases(t *testing.T) {
 	t.Run("fragment_not_sent_to_server", func(t *testing.T) {
 		t.Parallel()
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", htmlContentType)
 			if r.URL.Path != "/doc" {
-				http.Error(w, "want /doc", http.StatusNotFound)
+				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			if r.URL.Fragment != "" {
-				http.Error(w, "fragment should not appear in request URL", http.StatusBadRequest)
+				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 			_, _ = w.Write([]byte("doc"))
@@ -327,6 +346,7 @@ func TestFetch_edgeCases(t *testing.T) {
 		t.Parallel()
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Location", "/new/1")
+			w.Header().Set("Content-Type", htmlContentType)
 			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write([]byte(`{"id":1}`))
 		}))
@@ -360,7 +380,7 @@ func TestFetch_edgeCases(t *testing.T) {
 	t.Run("503_service_unavailable", func(t *testing.T) {
 		t.Parallel()
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			http.Error(w, "overload", http.StatusServiceUnavailable)
+			w.WriteHeader(http.StatusServiceUnavailable)
 		}))
 		t.Cleanup(srv.Close)
 		cfg := &config.Default().Fetch
@@ -374,6 +394,7 @@ func TestFetch_edgeCases(t *testing.T) {
 	t.Run("redirects_at_max_minus_one_ok", func(t *testing.T) {
 		t.Parallel()
 		final := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", htmlContentType)
 			_, _ = w.Write([]byte("end"))
 		}))
 		mid := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
