@@ -9,7 +9,6 @@ import (
 )
 
 // Run listens on addr and blocks until the server stops or returns an error.
-// Phase 1 exposes only GET /health (200 OK, JSON body). Static UI is added later.
 func Run(addr string, config *config.Config) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
