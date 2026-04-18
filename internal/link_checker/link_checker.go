@@ -95,19 +95,17 @@ func runProbes(ctx context.Context, client *http.Client, navigableURLs []*url.UR
 	var mu sync.Mutex
 
 	for range lc.Workers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for linkURL := range jobs {
+		wg.Go(func() {
+			for dedupedURL := range jobs {
 				if ctx.Err() != nil {
 					return
 				}
-				isInaccessible, _ := probeAccessibility(ctx, client, linkURL, lc)
+				isInaccessible, _ := probeAccessibility(ctx, client, dedupedURL, lc)
 				mu.Lock()
-				results[linkURL] = isInaccessible
+				results[dedupedURL] = isInaccessible
 				mu.Unlock()
 			}
-		}()
+		})
 	}
 
 send:
