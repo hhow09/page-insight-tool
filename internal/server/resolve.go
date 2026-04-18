@@ -10,7 +10,7 @@ import (
 	"github.com/hhow09/page-insight-tool/internal/config"
 	"github.com/hhow09/page-insight-tool/internal/fetch"
 	"github.com/hhow09/page-insight-tool/internal/httpclient"
-	"github.com/hhow09/page-insight-tool/internal/linker"
+	"github.com/hhow09/page-insight-tool/internal/link_checker"
 )
 
 type AnalyzeRequest struct {
@@ -75,7 +75,7 @@ func GetResolveHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		summary, err := linker.Summarize(ctx, client, fetchRes.FinalURL, report.RawHrefs, &cfg.Link)
+		summary, err := link_checker.Summarize(ctx, client, fetchRes.FinalURL, report.RawHrefs, &cfg.Link)
 		if err != nil {
 			slog.Error("failed to analyze links", "error", err)
 			writeError(w, http.StatusInternalServerError, "failed to analyze links: "+err.Error())

@@ -1,4 +1,4 @@
-package linker
+package link_checker
 
 import (
 	"context"
@@ -42,7 +42,7 @@ func Summarize(ctx context.Context, client *http.Client, page *url.URL, rawHrefs
 // and NavigableURLs (all resolved URLs to probe).
 func collectNavigableLinks(page *url.URL, rawHrefs []string) (*Summary, []*url.URL, error) {
 	if page == nil {
-		return nil, nil, &url.Error{Op: "linker.collectNavigableLinks", URL: "", Err: errors.New("nil page URL")}
+		return nil, nil, &url.Error{Op: "link_checker.collectNavigableLinks", URL: "", Err: errors.New("nil page URL")}
 	}
 	slog.Debug("collectNavigableLinks", "page", page.String(), "count", len(rawHrefs), "hrefs", rawHrefs)
 	out := &Summary{}

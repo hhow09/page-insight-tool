@@ -1,4 +1,4 @@
-package linker
+package link_checker
 
 import (
 	"fmt"

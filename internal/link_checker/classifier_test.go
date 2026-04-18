@@ -1,10 +1,9 @@
-package linker
+package link_checker
 
 import (
 	"net/url"
 	"testing"
 )
-
 
 func TestSameHost_differentSubdomain(t *testing.T) {
 	t.Parallel()
