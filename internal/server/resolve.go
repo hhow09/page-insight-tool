@@ -23,13 +23,14 @@ type AnalyzeResponse struct {
 }
 
 type AnalyzeData struct {
-	HTMLVersion       string   `json:"htmlVersion"`
-	Title             string   `json:"title"`
-	Headings          Headings `json:"headings"`
-	InternalLinks     int      `json:"internalLinks"`
-	ExternalLinks     int      `json:"externalLinks"`
-	InaccessibleLinks int      `json:"inaccessibleLinks"`
-	HasLoginForm      bool     `json:"hasLoginForm"`
+	HTMLVersion         string   `json:"htmlVersion"`
+	Title               string   `json:"title"`
+	Headings            Headings `json:"headings"`
+	InternalLinks       int      `json:"internalLinks"`
+	ExternalLinks       int      `json:"externalLinks"`
+	InaccessibleLinks   int      `json:"inaccessibleLinks"`
+	SkippedNonNavigable int      `json:"skippedNonNavigable"`
+	HasLoginForm        bool     `json:"hasLoginForm"`
 }
 
 type Headings struct {
@@ -94,10 +95,11 @@ func GetResolveHandler(cfg *config.Config) http.HandlerFunc {
 					H5: report.HeadingsCount[4],
 					H6: report.HeadingsCount[5],
 				},
-				InternalLinks:     summary.InternalLinks,
-				ExternalLinks:     summary.ExternalLinks,
-				InaccessibleLinks: summary.InaccessibleLinks,
-				HasLoginForm:      report.LoginForm,
+				InternalLinks:       summary.InternalLinks,
+				ExternalLinks:       summary.ExternalLinks,
+				InaccessibleLinks:   summary.InaccessibleLinks,
+				SkippedNonNavigable: summary.SkippedNonNavigable,
+				HasLoginForm:        report.LoginForm,
 			},
 		}
 

@@ -17,6 +17,7 @@ interface AnalyzeData {
   internalLinks: number;
   externalLinks: number;
   inaccessibleLinks: number;
+  skippedNonNavigable: number;
   hasLoginForm: boolean;
 }
 

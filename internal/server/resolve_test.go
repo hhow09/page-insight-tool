@@ -79,12 +79,20 @@ func TestResolve_Success(t *testing.T) {
 			<head><title>Mock Page</title></head>
 			<body>
 				<h1>Welcome</h1>
-				<a href="/">Internal Link</a>
+				<a href="#another-section">Another Section (skipped)</a>
+				<a href="mailto:[EMAIL_ADDRESS]">Mail Link (skipped)</a>
+				<a href="javascript:void(0)">JavaScript Link (skipped)</a>
+				<a href="/another">Internal Link</a>
+				<a href="/another">Duplicate Internal Link</a>
+				<a href="/home#section">Internal Link with Fragment</a>
 				<a href="%s">External Link</a>
+				<a href="%s">Duplicate External Link</a>
 				<a href="/dead-link">Inaccessible Internal Link</a>
+				<a href="/dead-link">Duplicate Inaccessible Internal Link</a>
+				<a href="/dead-link#frag">Inaccessible Internal Link with Fragment</a>
 			</body>
 			</html>
-		`, extURL)
+		`, extURL, extURL)
 	}))
 	t.Cleanup(srv.Close)
 
@@ -126,17 +134,21 @@ func TestResolve_Success(t *testing.T) {
 		t.Errorf("expected 1 h1, got %d", d.Headings.H1)
 	}
 
-	// internal links: "/" and "/dead-link"
-	if d.InternalLinks != 2 {
-		t.Errorf("expected 2 InternalLinks, got %d", d.InternalLinks)
+	// internal links: 2x "/another", 1x "/home#section", 3x "/dead-link"
+	if d.InternalLinks != 6 {
+		t.Errorf("expected 6 InternalLinks, got %d", d.InternalLinks)
 	}
-	// external links: "http://localhost:<port>"
-	if d.ExternalLinks != 1 {
-		t.Errorf("expected 1 ExternalLinks, got %d", d.ExternalLinks)
+	// external links: 2x "http://localhost:<port>"
+	if d.ExternalLinks != 2 {
+		t.Errorf("expected 2 ExternalLinks, got %d", d.ExternalLinks)
 	}
-	// inaccessible links: only "/dead-link" should fail since others return 200
-	if d.InaccessibleLinks != 1 {
-		t.Errorf("expected 1 InaccessibleLinks, got %d", d.InaccessibleLinks)
+	// inaccessible links: 3x "/dead-link"
+	if d.InaccessibleLinks != 3 {
+		t.Errorf("expected 3 InaccessibleLinks, got %d", d.InaccessibleLinks)
+	}
+	// skipped non-navigable links: 1x "#another-section", 1x "mailto:[EMAIL_ADDRESS]", 1x "javascript:void(0)"
+	if d.SkippedNonNavigable != 3 {
+		t.Errorf("expected 3 SkippedNonNavigable, got %d", d.SkippedNonNavigable)
 	}
 }
 
