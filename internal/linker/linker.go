@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/url"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/hhow09/page-insight-tool/internal/config"
 )
@@ -24,40 +24,29 @@ type Summary struct {
 
 // Summarize resolves raw hrefs against page, counts internal vs external, then probes unique http(s) URLs.
 func Summarize(ctx context.Context, client *http.Client, page *url.URL, rawHrefs []string, lc *config.LinkConfig) (*Summary, error) {
-	out, navigableURLs, err := collectClassifiedUnique(page, rawHrefs, lc.MaxURLsToCheck)
+	summary, navigableURLs, err := collectNavigableLinks(page, rawHrefs)
 	if err != nil {
 		return nil, err
 	}
 
 	inAccessibleLinks, probePartial, err := runProbes(ctx, client, navigableURLs, lc)
 	if probePartial {
-		out.PartialCheck = true
+		summary.PartialCheck = true
 	}
-	out.InaccessibleLinks = inAccessibleLinks
-	return out, err
+	summary.InaccessibleLinks = inAccessibleLinks
+	return summary, err
 }
 
-// dedupeKey returns the string representation of the URL without the fragment.
-func dedupeKey(u *url.URL) string {
-	if u == nil {
-		return ""
-	}
-	nu := *u
-	nu.Fragment = ""
-	return nu.String()
-}
-
-// collectClassifiedUnique resolves each href, counts internal vs external and skips,
-// and fills Summary with classification counts, LinksTotalUnique, LinksChecked, PartialCheck (when capped),
-// and NavigableURLs (sorted deduped list to probe, after optional cap).
-func collectClassifiedUnique(page *url.URL, rawHrefs []string, maxURLsToCheck int) (*Summary, []string, error) {
+// collectNavigableLinks resolves each href, counts internal vs external and skips,
+// and fills Summary with classification counts,
+// and NavigableURLs (all resolved URLs to probe).
+func collectNavigableLinks(page *url.URL, rawHrefs []string) (*Summary, []*url.URL, error) {
 	if page == nil {
-		return nil, nil, &url.Error{Op: "linker.collectClassifiedUnique", URL: "", Err: errors.New("nil page URL")}
+		return nil, nil, &url.Error{Op: "linker.collectNavigableLinks", URL: "", Err: errors.New("nil page URL")}
 	}
-	slog.Debug("collectClassifiedUnique", "page", page.String(), "count", len(rawHrefs), "hrefs", rawHrefs)
+	slog.Debug("collectNavigableLinks", "page", page.String(), "count", len(rawHrefs), "hrefs", rawHrefs)
 	out := &Summary{}
-	seen := make(map[string]struct{})
-	var unique []string
+	var navigable []*url.URL
 
 	for _, href := range rawHrefs {
 		href = strings.TrimSpace(href)
@@ -86,36 +75,24 @@ func collectClassifiedUnique(page *url.URL, rawHrefs []string, maxURLsToCheck in
 		} else {
 			out.ExternalLinks++
 		}
-		key := dedupeKey(abs)
-		// Should not happen for http(s), but skip if we cannot form a stable dedupe string.
-		if key == "" {
-			continue
-		}
-		if _, dup := seen[key]; dup {
-			continue
-		}
-		seen[key] = struct{}{}
-		unique = append(unique, key)
+		navigable = append(navigable, abs)
 	}
 
-	sort.Strings(unique)
-	if maxURLsToCheck > 0 && len(unique) > maxURLsToCheck {
-		out.PartialCheck = true
-		unique = unique[:maxURLsToCheck]
-	}
-	return out, unique, nil
+	return out, navigable, nil
 }
 
-// runProbeWorkerPool runs HEAD/GET accessibility checks for navigableURLs with a bounded worker pool.
-func runProbes(ctx context.Context, client *http.Client, navigableURLs []string, lc *config.LinkConfig) (inaccessible int, partial bool, err error) {
+// runProbes runs HEAD/GET accessibility checks for navigableURLs with a bounded worker pool, returning the total count of inaccessible links.
+func runProbes(ctx context.Context, client *http.Client, navigableURLs []*url.URL, lc *config.LinkConfig) (inaccessible int, partial bool, err error) {
 	if len(navigableURLs) == 0 {
 		return 0, false, nil
 	}
-	slog.Debug("navigableURLs collected", "count", len(navigableURLs), "urls", navigableURLs)
+	toProbe, partial := dedupAndCap(navigableURLs, lc.MaxURLsToCheck)
+	slog.Debug("unique URLs to probe", "count", len(toProbe), "urls", toProbe)
 
 	jobs := make(chan string)
 	var wg sync.WaitGroup
-	var inaccessibleCount atomic.Int64
+	results := make(map[string]bool)
+	var mu sync.Mutex
 
 	for range lc.Workers {
 		wg.Add(1)
@@ -125,16 +102,16 @@ func runProbes(ctx context.Context, client *http.Client, navigableURLs []string,
 				if ctx.Err() != nil {
 					return
 				}
-				inaccessible, _ := probeAccessibility(ctx, client, linkURL, lc)
-				if inaccessible {
-					inaccessibleCount.Add(1)
-				}
+				isInaccessible, _ := probeAccessibility(ctx, client, linkURL, lc)
+				mu.Lock()
+				results[linkURL] = isInaccessible
+				mu.Unlock()
 			}
 		}()
 	}
 
 send:
-	for _, u := range navigableURLs {
+	for _, u := range toProbe {
 		select {
 		case <-ctx.Done(): // context canceled early exit
 			partial = true
@@ -145,8 +122,32 @@ send:
 	close(jobs)
 	wg.Wait()
 
-	if ctx.Err() != nil { // context canceled
-		partial = true
+	var inaccessibleCount int
+	for _, u := range navigableURLs {
+		key := dedupeKey(u)
+		if inaccessible, ok := results[key]; ok && inaccessible {
+			inaccessibleCount++
+		}
 	}
-	return int(inaccessibleCount.Load()), partial, ctx.Err()
+
+	return inaccessibleCount, partial, nil
+}
+
+func dedupAndCap(urls []*url.URL, max int) ([]string, bool) {
+	seen := make(map[string]struct{})
+	for _, u := range urls {
+		seen[dedupeKey(u)] = struct{}{}
+	}
+	deduped := slices.Collect(maps.Keys(seen))
+	if max > 0 && len(deduped) >= max {
+		return deduped[:max], true
+	}
+	return deduped, false
+}
+
+// dedupeKey returns the string representation of the URL without the fragment.
+func dedupeKey(u *url.URL) string {
+	nu := *u
+	nu.Fragment = ""
+	return nu.String()
 }

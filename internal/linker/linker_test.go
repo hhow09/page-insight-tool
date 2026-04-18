@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hhow09/page-insight-tool/internal/config"
@@ -88,5 +89,44 @@ func TestSummarize_nil_page(t *testing.T) {
 	_, err := Summarize(context.Background(), httpclient.New(&cfg.HTTPClient), nil, []string{"/"}, &cfg.Link)
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestSummarize_deduplication(t *testing.T) {
+	t.Parallel()
+	var probeCount atomic.Int32
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/gone" {
+			probeCount.Add(1)
+			http.NotFound(w, r)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(remote.Close)
+
+	origin, _ := url.Parse(remote.URL + "/")
+	cfg := config.Default()
+	cfg.Link.MaxURLsToCheck = 0
+
+	raw := []string{
+		"/gone",
+		"/gone#frag",
+		"/gone",
+		"/ok",
+	}
+
+	rep, err := Summarize(context.Background(), httpclient.New(&cfg.HTTPClient), origin, raw, &cfg.Link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// We expect 3 InaccessibleLinks because /gone appears 3 times.
+	if rep.InaccessibleLinks != 3 {
+		t.Fatalf("InaccessibleLinks: got %d want 3", rep.InaccessibleLinks)
+	}
+	// network probe should happen only once for /gone.
+	// (#fragment is de-duplicated in network probe)
+	if probeCount.Load() != 1 {
+		t.Fatalf("probeCount: got %d want 1 (should be cached), got %d", probeCount.Load(), probeCount.Load())
 	}
 }
