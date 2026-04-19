@@ -30,7 +30,6 @@ type FetchConfig struct {
 type LinkConfig struct {
 	Workers           int   `validate:"gte=1"` // max concurrent accessibility probes
 	MaxProbeBodyBytes int64 `validate:"gt=0"`  // max bytes read from probe responses
-	MaxURLsToCheck    int   `validate:"gte=0"` // max unique http(s) URLs to probe (0 = unlimited)
 }
 
 // Default returns a new config with built-in defaults (safe to mutate for tests).
@@ -50,7 +49,6 @@ func Default() *Config {
 		Link: LinkConfig{
 			Workers:           8,
 			MaxProbeBodyBytes: 64 << 10,
-			MaxURLsToCheck:    1000,
 		},
 	}
 }

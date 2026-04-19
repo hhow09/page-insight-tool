@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -33,7 +32,6 @@ func TestSummarize_internalExternal_and_inaccessible(t *testing.T) {
 	}
 
 	cfg := config.Default()
-	cfg.Link.MaxURLsToCheck = 0
 
 	raw := []string{
 		"../ok",          // internal
@@ -60,29 +58,6 @@ func TestSummarize_internalExternal_and_inaccessible(t *testing.T) {
 	}
 }
 
-func TestSummarize_maxURLs_cap(t *testing.T) {
-	t.Parallel()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	t.Cleanup(srv.Close)
-	page, _ := url.Parse(srv.URL + "/")
-	var hrefs []string
-	for i := range 10 {
-		hrefs = append(hrefs, "/p"+strings.Repeat("a", i))
-	}
-	cfg := config.Default()
-	cfg.Link.MaxURLsToCheck = 3
-	rep, err := Summarize(context.Background(), httpclient.New(&cfg.HTTPClient), page, hrefs, &cfg.Link)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !rep.PartialCheck {
-		t.Fatal("expected PartialCheck")
-	}
-
-}
-
 func TestSummarize_nil_page(t *testing.T) {
 	t.Parallel()
 	cfg := config.Default()
@@ -107,7 +82,6 @@ func TestSummarize_deduplication(t *testing.T) {
 
 	origin, _ := url.Parse(remote.URL + "/")
 	cfg := config.Default()
-	cfg.Link.MaxURLsToCheck = 0
 
 	raw := []string{
 		"/gone",

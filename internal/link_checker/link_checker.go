@@ -19,7 +19,6 @@ type Summary struct {
 	ExternalLinks       int
 	SkippedNonNavigable int
 	InaccessibleLinks   int
-	PartialCheck        bool
 }
 
 // Summarize resolves raw hrefs against page, counts internal vs external, then probes unique http(s) URLs.
@@ -29,10 +28,7 @@ func Summarize(ctx context.Context, client *http.Client, page *url.URL, rawHrefs
 		return nil, err
 	}
 
-	inAccessibleLinks, probePartial, err := runProbes(ctx, client, navigableURLs, lc)
-	if probePartial {
-		summary.PartialCheck = true
-	}
+	inAccessibleLinks, err := runProbes(ctx, client, navigableURLs, lc)
 	summary.InaccessibleLinks = inAccessibleLinks
 	return summary, err
 }
@@ -82,11 +78,11 @@ func collectNavigableLinks(page *url.URL, rawHrefs []string) (*Summary, []*url.U
 }
 
 // runProbes runs HEAD/GET accessibility checks for navigableURLs with a bounded worker pool, returning the total count of inaccessible links.
-func runProbes(ctx context.Context, client *http.Client, navigableURLs []*url.URL, lc *config.LinkConfig) (inaccessible int, partial bool, err error) {
+func runProbes(ctx context.Context, client *http.Client, navigableURLs []*url.URL, lc *config.LinkConfig) (inaccessible int, err error) {
 	if len(navigableURLs) == 0 {
-		return 0, false, nil
+		return 0, nil
 	}
-	toProbe, partial := dedupAndCap(navigableURLs, lc.MaxURLsToCheck)
+	toProbe := deduplicated(navigableURLs)
 	slog.Debug("unique URLs to probe", "count", len(toProbe), "urls", toProbe)
 
 	jobs := make(chan string)
@@ -112,7 +108,6 @@ send:
 	for _, u := range toProbe {
 		select {
 		case <-ctx.Done(): // context canceled early exit
-			partial = true
 			break send
 		case jobs <- u:
 		}
@@ -128,19 +123,16 @@ send:
 		}
 	}
 
-	return inaccessibleCount, partial, nil
+	return inaccessibleCount, nil
 }
 
-func dedupAndCap(urls []*url.URL, max int) ([]string, bool) {
+func deduplicated(urls []*url.URL) []string {
 	seen := make(map[string]struct{})
 	for _, u := range urls {
 		seen[dedupeKey(u)] = struct{}{}
 	}
 	deduped := slices.Collect(maps.Keys(seen))
-	if max > 0 && len(deduped) >= max {
-		return deduped[:max], true
-	}
-	return deduped, false
+	return deduped
 }
 
 // dedupeKey returns the string representation of the URL without the fragment.
