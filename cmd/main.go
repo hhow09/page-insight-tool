@@ -2,6 +2,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"log/slog"
 	"os"
@@ -11,7 +12,12 @@ import (
 )
 
 func main() {
-	cfg := config.Default()
+	configPath := flag.String("config", "", "path to YAML configuration file (optional)")
+	flag.Parse()
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		log.Fatal(err)
+	}
 	if err := cfg.Validate(); err != nil {
 		log.Fatal(err)
 	}

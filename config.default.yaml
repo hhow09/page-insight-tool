@@ -1,0 +1,21 @@
+server:
+  # bind address and port for the HTTP server
+  addr: ":8080"
+
+http_client:
+  # maximum number of redirects to follow
+  max_redirects: 10
+  # timeout duration for HTTP client, 0 = no timeout; YAML: Go duration strings (e.g. "60s", "2m")
+  timeout: 60s
+  # user-agent string for HTTP client, optional; empty falls back in HTTP client if needed
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+
+fetch:
+  # maximum number of bytes to read for fetching the target page body
+  max_body_bytes: 16777216 # 16 MiB
+
+link:
+  # maximum number of concurrent workers for link probing
+  workers: 8
+  # maximum number of bytes to read during link probing, default is 64KiB
+  max_probe_body_bytes: 65536 # 64 KiB

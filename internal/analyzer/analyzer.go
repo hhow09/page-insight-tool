@@ -1,4 +1,3 @@
-// Package analyzer extracts page insight metrics from HTML (Phase 3: parse only; no outbound link checks).
 package analyzer
 
 import (
