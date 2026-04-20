@@ -3,6 +3,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"log/slog"
 	"os"
@@ -26,7 +27,7 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
-	log.Printf("page-insight listening on http://127.0.0.1%s (GET /health)", cfg.Server.Addr)
+	slog.Info("Starting server", "address", fmt.Sprintf("http://%s", cfg.Server.Addr))
 	if err := server.Run(cfg.Server.Addr, cfg); err != nil {
 		log.Fatal(err)
 	}

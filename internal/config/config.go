@@ -77,7 +77,7 @@ func unmarshalViper(v *viper.Viper) (*Config, error) {
 func Default() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Addr: ":8080",
+			Addr: "127.0.0.1:8080",
 		},
 		HTTPClient: HTTPClientConfig{
 			MaxRedirects: 10,
