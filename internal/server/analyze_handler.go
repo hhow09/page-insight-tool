@@ -141,6 +141,7 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	})
 	if err != nil {
 		slog.Error("failed to encode response", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to encode response")
+		// ignoring error since unable to handle properly
+		_, _ = w.Write([]byte("internal server error"))
 	}
 }
