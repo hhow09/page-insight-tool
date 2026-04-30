@@ -12,14 +12,8 @@ import (
 	"sync"
 
 	"github.com/hhow09/page-insight-tool/internal/config"
+	"github.com/hhow09/page-insight-tool/internal/model"
 )
-
-type Summary struct {
-	InternalLinks       int
-	ExternalLinks       int
-	SkippedNonNavigable int
-	InaccessibleLinks   int
-}
 
 func NewLinkChecker(client *http.Client, cfg *config.LinkConfig) *LinkChecker {
 	return &LinkChecker{
@@ -34,8 +28,7 @@ type LinkChecker struct {
 }
 
 // Summarize resolves raw hrefs against baseUrl, counts internal vs external, then probes unique http(s) URLs.
-// The returned Summary contains the counts of internal, external, skipped non-navigable, and inaccessible links.
-func (lc *LinkChecker) Summarize(ctx context.Context, baseUrl *url.URL, rawHrefs []string) (*Summary, error) {
+func (lc *LinkChecker) Summarize(ctx context.Context, baseUrl *url.URL, rawHrefs []string) (*model.LinkCheckSummary, error) {
 	summary, navigableURLs, err := lc.collectNavigableLinks(baseUrl, rawHrefs)
 	if err != nil {
 		return nil, err
@@ -47,14 +40,14 @@ func (lc *LinkChecker) Summarize(ctx context.Context, baseUrl *url.URL, rawHrefs
 }
 
 // collectNavigableLinks resolves each href, counts internal vs external and skips,
-// and fills Summary with classification counts,
+// and fills LinkCheckSummary with classification counts,
 // and NavigableURLs (all resolved URLs to probe).
-func (lc *LinkChecker) collectNavigableLinks(baseUrl *url.URL, rawHrefs []string) (*Summary, []*url.URL, error) {
+func (lc *LinkChecker) collectNavigableLinks(baseUrl *url.URL, rawHrefs []string) (*model.LinkCheckSummary, []*url.URL, error) {
 	if baseUrl == nil {
 		return nil, nil, &url.Error{Op: "link_checker.collectNavigableLinks", URL: "", Err: errors.New("nil base URL")}
 	}
 	slog.Debug("collectNavigableLinks", "baseUrl", baseUrl.String(), "count", len(rawHrefs), "hrefs", rawHrefs)
-	out := &Summary{}
+	out := &model.LinkCheckSummary{}
 	var navigable []*url.URL
 
 	for _, href := range rawHrefs {

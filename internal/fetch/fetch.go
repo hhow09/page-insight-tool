@@ -12,16 +12,10 @@ import (
 	"strings"
 
 	"github.com/hhow09/page-insight-tool/internal/config"
+	"github.com/hhow09/page-insight-tool/internal/model"
 )
 
 const htmlContentType = "text/html"
-
-// Result holds a successful fetch.
-type Result struct {
-	FinalURL *url.URL
-	Body     []byte
-	Status   int
-}
 
 func NewFetcher(client *http.Client, cfg *config.FetchConfig) *Fetcher {
 	return &Fetcher{
@@ -36,7 +30,7 @@ type Fetcher struct {
 }
 
 // Fetch retrieves the body, status, and final redirected URL from the given URL.
-func (f *Fetcher) Fetch(ctx context.Context, raw string) (*Result, error) {
+func (f *Fetcher) Fetch(ctx context.Context, raw string) (*model.FetchResult, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return nil, &FetchError{HTTPStatus: 0, Message: fmt.Sprintf("invalid URL: %v", err)}
@@ -83,7 +77,7 @@ func (f *Fetcher) Fetch(ctx context.Context, raw string) (*Result, error) {
 	}
 
 	final := resp.Request.URL
-	return &Result{FinalURL: final, Body: body, Status: resp.StatusCode}, nil
+	return &model.FetchResult{FinalURL: final, Body: body, Status: resp.StatusCode}, nil
 }
 
 func isHTML(resp *http.Response) bool {

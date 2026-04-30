@@ -14,9 +14,10 @@ import (
 
 	"github.com/hhow09/page-insight-tool/internal/config"
 	"github.com/hhow09/page-insight-tool/internal/httpclient"
+	"github.com/hhow09/page-insight-tool/internal/model"
 )
 
-func testFetch(ctx context.Context, raw string, cfg *config.Config) (*Result, error) {
+func testFetch(ctx context.Context, raw string, cfg *config.Config) (*model.FetchResult, error) {
 	client := httpclient.New(&cfg.HTTPClient)
 	fetcher := &Fetcher{
 		client: client,
