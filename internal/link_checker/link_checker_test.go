@@ -32,6 +32,10 @@ func TestSummarize_internalExternal_and_inaccessible(t *testing.T) {
 	}
 
 	cfg := config.Default()
+	lc := &LinkChecker{
+		client: httpclient.New(&cfg.HTTPClient),
+		cfg:    &cfg.Link,
+	}
 
 	raw := []string{
 		"../ok",          // internal
@@ -40,7 +44,7 @@ func TestSummarize_internalExternal_and_inaccessible(t *testing.T) {
 		"#frag",          // skipped non-navigable
 		remote.URL + "/ok",
 	}
-	rep, err := Summarize(context.Background(), httpclient.New(&cfg.HTTPClient), origin, raw, &cfg.Link)
+	rep, err := lc.Summarize(context.Background(), origin, raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,9 +65,13 @@ func TestSummarize_internalExternal_and_inaccessible(t *testing.T) {
 func TestSummarize_nil_page(t *testing.T) {
 	t.Parallel()
 	cfg := config.Default()
-	_, err := Summarize(context.Background(), httpclient.New(&cfg.HTTPClient), nil, []string{"/"}, &cfg.Link)
+	lc := NewLinkChecker(httpclient.New(&cfg.HTTPClient), &cfg.Link)
+	summary, err := lc.Summarize(context.Background(), nil, []string{"/"})
 	if err == nil {
 		t.Fatal("expected error")
+	}
+	if summary != nil {
+		t.Fatalf("expected nil summary, got %+v", summary)
 	}
 }
 
@@ -90,13 +98,14 @@ func TestSummarize_deduplication(t *testing.T) {
 		"/ok",
 	}
 
-	rep, err := Summarize(context.Background(), httpclient.New(&cfg.HTTPClient), origin, raw, &cfg.Link)
+	lc := NewLinkChecker(httpclient.New(&cfg.HTTPClient), &cfg.Link)
+	summary, err := lc.Summarize(context.Background(), origin, raw)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// We expect 3 InaccessibleLinks because /gone appears 3 times.
-	if rep.InaccessibleLinks != 3 {
-		t.Fatalf("InaccessibleLinks: got %d want 3", rep.InaccessibleLinks)
+	if summary.InaccessibleLinks != 3 {
+		t.Fatalf("InaccessibleLinks: got %d want 3", summary.InaccessibleLinks)
 	}
 	// network probe should happen only once for /gone.
 	// (#fragment is de-duplicated in network probe)

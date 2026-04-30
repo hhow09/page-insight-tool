@@ -46,6 +46,7 @@ func GetResolveHandler(cfg *config.Config) http.HandlerFunc {
 	// TODO: dependency injection from main.go
 	client := httpclient.New(&cfg.HTTPClient)
 	fetcher := fetch.NewFetcher(client, &cfg.Fetch)
+	linkChecker := link_checker.NewLinkChecker(client, &cfg.Link)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -78,7 +79,7 @@ func GetResolveHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		summary, err := link_checker.Summarize(ctx, client, fetchRes.FinalURL, report.RawHrefs, &cfg.Link)
+		summary, err := linkChecker.Summarize(ctx, fetchRes.FinalURL, report.RawHrefs)
 		if err != nil {
 			slog.Error("failed to analyze links", "error", err)
 			writeError(w, http.StatusInternalServerError, "failed to analyze links: "+err.Error())
