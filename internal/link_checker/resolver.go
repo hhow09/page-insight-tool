@@ -5,8 +5,8 @@ import (
 	"net/url"
 )
 
-// Resolve parses href as a reference against the page URL (RFC 3986).
-func Resolve(page *url.URL, href string) (*url.URL, error) {
+// resolveRelative parses href as a reference against the page URL (RFC 3986).
+func resolveRelative(page *url.URL, href string) (*url.URL, error) {
 	if page == nil {
 		return nil, fmt.Errorf("nil page URL")
 	}

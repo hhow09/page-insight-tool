@@ -54,19 +54,19 @@ func collectNavigableLinks(page *url.URL, rawHrefs []string) (*Summary, []*url.U
 			out.SkippedNonNavigable++
 			continue
 		}
-		abs, e := Resolve(page, href)
+		abs, e := resolveRelative(page, href)
 		// Malformed reference or parse failure against the page URL.
 		if e != nil {
 			out.SkippedNonNavigable++
 			continue
 		}
 		// mailto:, javascript:, tel:, etc. — excluded from probe list per plan.
-		if !NavigableHTTP(abs) {
+		if !navigableHTTP(abs) {
 			out.SkippedNonNavigable++
 			continue
 		}
 		// Same hostname as page (case-insensitive) → internal; otherwise external.
-		if SameHost(page, abs) {
+		if sameHost(page, abs) {
 			out.InternalLinks++
 		} else {
 			out.ExternalLinks++

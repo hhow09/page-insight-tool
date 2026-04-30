@@ -11,7 +11,7 @@ func TestResolve_relative(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	u, err := Resolve(base, "../d")
+	u, err := resolveRelative(base, "../d")
 	if err != nil {
 		t.Fatal(err)
 	}
