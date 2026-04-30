@@ -43,7 +43,9 @@ type Headings struct {
 }
 
 func GetResolveHandler(cfg *config.Config) http.HandlerFunc {
+	// TODO: dependency injection from main.go
 	client := httpclient.New(&cfg.HTTPClient)
+	fetcher := fetch.NewFetcher(client, &cfg.Fetch)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -63,7 +65,7 @@ func GetResolveHandler(cfg *config.Config) http.HandlerFunc {
 
 		ctx := r.Context()
 
-		fetchRes, err := fetch.Fetch(ctx, client, req.URL, &cfg.Fetch)
+		fetchRes, err := fetcher.Fetch(ctx, req.URL)
 		if err != nil {
 			writeError(w, http.StatusNotFound, err.Error())
 			return

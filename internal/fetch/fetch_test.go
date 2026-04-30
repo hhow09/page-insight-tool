@@ -18,7 +18,11 @@ import (
 
 func testFetch(ctx context.Context, raw string, cfg *config.Config) (*Result, error) {
 	client := httpclient.New(&cfg.HTTPClient)
-	return Fetch(ctx, client, raw, &cfg.Fetch)
+	fetcher := &Fetcher{
+		client: client,
+		cfg:    &cfg.Fetch,
+	}
+	return fetcher.Fetch(ctx, raw)
 }
 
 func TestFetch_OK(t *testing.T) {
