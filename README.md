@@ -11,6 +11,7 @@ A web application that fetches a web page and returns a structured analysis of:
 
 ## Strength
 - Single-responsibility principle for each package.
+- Applied dependency injection for loose coupling and enhanced testability
 - Separated configuration from application code.
 - Full CI setup with unit tests and linting.
 - Strong test coverage across critical functionality.
@@ -70,10 +71,11 @@ cmd/main.go           — binary entrypoint
 internal/
   config/             — configuration module
   httpclient/         — shared HTTP client module
+  model               - shared domain object betwen modules
   fetch/              — fetches the target page body
   analyzer/           — parses HTML information
   link_checker/       — classifies and checks links
-  server/             — HTTP server
+  server/             — HTTP server and handler
 frontend/             — React SPA
 ```
 

@@ -12,36 +12,42 @@ import (
 	"sync"
 
 	"github.com/hhow09/page-insight-tool/internal/config"
+	"github.com/hhow09/page-insight-tool/internal/model"
 )
 
-type Summary struct {
-	InternalLinks       int
-	ExternalLinks       int
-	SkippedNonNavigable int
-	InaccessibleLinks   int
+func New(client *http.Client, cfg *config.LinkConfig) *LinkChecker {
+	return &LinkChecker{
+		client: client,
+		cfg:    cfg,
+	}
 }
 
-// Summarize resolves raw hrefs against page, counts internal vs external, then probes unique http(s) URLs.
-func Summarize(ctx context.Context, client *http.Client, page *url.URL, rawHrefs []string, lc *config.LinkConfig) (*Summary, error) {
-	summary, navigableURLs, err := collectNavigableLinks(page, rawHrefs)
+type LinkChecker struct {
+	client *http.Client
+	cfg    *config.LinkConfig
+}
+
+// Summarize resolves raw hrefs against baseUrl, counts internal vs external, then probes unique http(s) URLs.
+func (lc *LinkChecker) Summarize(ctx context.Context, baseUrl *url.URL, rawHrefs []string) (*model.LinkCheckSummary, error) {
+	summary, navigableURLs, err := lc.collectNavigableLinks(baseUrl, rawHrefs)
 	if err != nil {
 		return nil, err
 	}
 
-	inAccessibleLinks, err := runProbes(ctx, client, navigableURLs, lc)
+	inAccessibleLinks, err := lc.runProbes(ctx, navigableURLs)
 	summary.InaccessibleLinks = inAccessibleLinks
 	return summary, err
 }
 
 // collectNavigableLinks resolves each href, counts internal vs external and skips,
-// and fills Summary with classification counts,
+// and fills LinkCheckSummary with classification counts,
 // and NavigableURLs (all resolved URLs to probe).
-func collectNavigableLinks(page *url.URL, rawHrefs []string) (*Summary, []*url.URL, error) {
-	if page == nil {
-		return nil, nil, &url.Error{Op: "link_checker.collectNavigableLinks", URL: "", Err: errors.New("nil page URL")}
+func (lc *LinkChecker) collectNavigableLinks(baseUrl *url.URL, rawHrefs []string) (*model.LinkCheckSummary, []*url.URL, error) {
+	if baseUrl == nil {
+		return nil, nil, &url.Error{Op: "link_checker.collectNavigableLinks", URL: "", Err: errors.New("nil base URL")}
 	}
-	slog.Debug("collectNavigableLinks", "page", page.String(), "count", len(rawHrefs), "hrefs", rawHrefs)
-	out := &Summary{}
+	slog.Debug("collectNavigableLinks", "baseUrl", baseUrl.String(), "count", len(rawHrefs), "hrefs", rawHrefs)
+	out := &model.LinkCheckSummary{}
 	var navigable []*url.URL
 
 	for _, href := range rawHrefs {
@@ -54,19 +60,19 @@ func collectNavigableLinks(page *url.URL, rawHrefs []string) (*Summary, []*url.U
 			out.SkippedNonNavigable++
 			continue
 		}
-		abs, e := Resolve(page, href)
-		// Malformed reference or parse failure against the page URL.
+		abs, e := resolveRelative(baseUrl, href)
+		// Malformed reference or parse failure against the baseUrl.
 		if e != nil {
 			out.SkippedNonNavigable++
 			continue
 		}
 		// mailto:, javascript:, tel:, etc. — excluded from probe list per plan.
-		if !NavigableHTTP(abs) {
+		if !navigableHTTP(abs) {
 			out.SkippedNonNavigable++
 			continue
 		}
-		// Same hostname as page (case-insensitive) → internal; otherwise external.
-		if SameHost(page, abs) {
+		// Same hostname as baseUrl (case-insensitive) → internal; otherwise external.
+		if sameHost(baseUrl, abs) {
 			out.InternalLinks++
 		} else {
 			out.ExternalLinks++
@@ -78,7 +84,7 @@ func collectNavigableLinks(page *url.URL, rawHrefs []string) (*Summary, []*url.U
 }
 
 // runProbes runs HEAD/GET accessibility checks for navigableURLs with a bounded worker pool, returning the total count of inaccessible links.
-func runProbes(ctx context.Context, client *http.Client, navigableURLs []*url.URL, lc *config.LinkConfig) (inaccessible int, err error) {
+func (lc *LinkChecker) runProbes(ctx context.Context, navigableURLs []*url.URL) (inaccessible int, err error) {
 	if len(navigableURLs) == 0 {
 		return 0, nil
 	}
@@ -90,13 +96,13 @@ func runProbes(ctx context.Context, client *http.Client, navigableURLs []*url.UR
 	results := make(map[string]bool)
 	var mu sync.Mutex
 
-	for range lc.Workers {
+	for range lc.cfg.Workers {
 		wg.Go(func() {
 			for dedupedURL := range jobs {
 				if ctx.Err() != nil {
 					return
 				}
-				isInaccessible, _ := probeAccessibility(ctx, client, dedupedURL, lc)
+				isInaccessible, _ := lc.probeAccessibility(ctx, dedupedURL)
 				mu.Lock()
 				results[dedupedURL] = isInaccessible
 				mu.Unlock()

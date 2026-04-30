@@ -14,11 +14,16 @@ import (
 
 	"github.com/hhow09/page-insight-tool/internal/config"
 	"github.com/hhow09/page-insight-tool/internal/httpclient"
+	"github.com/hhow09/page-insight-tool/internal/model"
 )
 
-func testFetch(ctx context.Context, raw string, cfg *config.Config) (*Result, error) {
+func testFetch(ctx context.Context, raw string, cfg *config.Config) (*model.FetchResult, error) {
 	client := httpclient.New(&cfg.HTTPClient)
-	return Fetch(ctx, client, raw, &cfg.Fetch)
+	fetcher := &Fetcher{
+		client: client,
+		cfg:    &cfg.Fetch,
+	}
+	return fetcher.Fetch(ctx, raw)
 }
 
 func TestFetch_OK(t *testing.T) {

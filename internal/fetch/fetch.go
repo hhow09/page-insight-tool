@@ -12,19 +12,25 @@ import (
 	"strings"
 
 	"github.com/hhow09/page-insight-tool/internal/config"
+	"github.com/hhow09/page-insight-tool/internal/model"
 )
 
 const htmlContentType = "text/html"
 
-// Result holds a successful fetch.
-type Result struct {
-	FinalURL *url.URL
-	Body     []byte
-	Status   int
+func New(client *http.Client, cfg *config.FetchConfig) *Fetcher {
+	return &Fetcher{
+		client: client,
+		cfg:    cfg,
+	}
+}
+
+type Fetcher struct {
+	client *http.Client
+	cfg    *config.FetchConfig
 }
 
 // Fetch retrieves the body, status, and final redirected URL from the given URL.
-func Fetch(ctx context.Context, client *http.Client, raw string, cfg *config.FetchConfig) (*Result, error) {
+func (f *Fetcher) Fetch(ctx context.Context, raw string) (*model.FetchResult, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return nil, &FetchError{HTTPStatus: 0, Message: fmt.Sprintf("invalid URL: %v", err)}
@@ -40,7 +46,7 @@ func Fetch(ctx context.Context, client *http.Client, raw string, cfg *config.Fet
 	if err != nil {
 		return nil, &FetchError{HTTPStatus: 0, Message: fmt.Sprintf("build request: %v", err)}
 	}
-	resp, err := client.Do(req)
+	resp, err := f.client.Do(req)
 	if err != nil {
 		return nil, mapDoError(err)
 	}
@@ -64,14 +70,14 @@ func Fetch(ctx context.Context, client *http.Client, raw string, cfg *config.Fet
 		return nil, &FetchError{HTTPStatus: 0, Message: "Only HTML is supported"}
 	}
 
-	limited := http.MaxBytesReader(nil, resp.Body, cfg.MaxBodyBytes)
+	limited := http.MaxBytesReader(nil, resp.Body, f.cfg.MaxBodyBytes)
 	body, err := io.ReadAll(limited)
 	if err != nil {
 		return nil, &FetchError{HTTPStatus: resp.StatusCode, Message: fmt.Sprintf("read body: %v", err)}
 	}
 
 	final := resp.Request.URL
-	return &Result{FinalURL: final, Body: body, Status: resp.StatusCode}, nil
+	return &model.FetchResult{FinalURL: final, Body: body, Status: resp.StatusCode}, nil
 }
 
 func isHTML(resp *http.Response) bool {

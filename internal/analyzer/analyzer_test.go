@@ -30,7 +30,8 @@ func TestAnalyze_HTML5_title_headings_links(t *testing.T) {
 <a href="https://ex.org/b">b</a>
 <a href="/a">dup</a>
 </body></html>`
-	rep, err := Analyze(context.Background(), strings.NewReader(html))
+	a := &Analyzer{}
+	rep, err := a.Analyze(context.Background(), strings.NewReader(html))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +59,8 @@ func TestAnalyze_malformedHTML(t *testing.T) {
 	html := `<!doctype html><html><head><title>T</title><h1>oops in head</h1>
 <body><p>unclosed
 <h1>ok</h1><a href="#x">x</a>`
-	rep, err := Analyze(context.Background(), strings.NewReader(html))
+	a := &Analyzer{}
+	rep, err := a.Analyze(context.Background(), strings.NewReader(html))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +80,8 @@ func TestAnalyze_login_password(t *testing.T) {
 	html := `<!DOCTYPE html><html><head><title>x</title></head><body>
 <form action="/login"><input name="u"><input type="PASSWORD" name="p"></form>
 </body></html>`
-	rep, err := Analyze(context.Background(), strings.NewReader(html))
+	a := &Analyzer{}
+	rep, err := a.Analyze(context.Background(), strings.NewReader(html))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +93,8 @@ func TestAnalyze_login_password(t *testing.T) {
 func TestAnalyze_login_noForm(t *testing.T) {
 	t.Parallel()
 	html := `<html><body><input type="password" name="p"></body></html>`
-	rep, err := Analyze(context.Background(), strings.NewReader(html))
+	a := &Analyzer{}
+	rep, err := a.Analyze(context.Background(), strings.NewReader(html))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +106,8 @@ func TestAnalyze_login_noForm(t *testing.T) {
 func TestAnalyze_version_unknownWhenNoDoctype(t *testing.T) {
 	t.Parallel()
 	html := `<html><head><title>x</title></head><body></body></html>`
-	rep, err := Analyze(context.Background(), strings.NewReader(html))
+	a := &Analyzer{}
+	rep, err := a.Analyze(context.Background(), strings.NewReader(html))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +118,8 @@ func TestAnalyze_version_unknownWhenNoDoctype(t *testing.T) {
 
 func TestAnalyze_go_blog_fixture(t *testing.T) {
 	t.Parallel()
-	rep, err := Analyze(context.Background(), bytes.NewReader(goBlogFixture))
+	a := &Analyzer{}
+	rep, err := a.Analyze(context.Background(), bytes.NewReader(goBlogFixture))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +159,8 @@ func TestAnalyze_go_blog_fixture(t *testing.T) {
 
 func TestAnalyze_home24_login_fixture(t *testing.T) {
 	t.Parallel()
-	rep, err := Analyze(context.Background(), bytes.NewReader(home24LoginFixture))
+	a := &Analyzer{}
+	rep, err := a.Analyze(context.Background(), bytes.NewReader(home24LoginFixture))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +178,8 @@ func TestAnalyze_home24_login_fixture(t *testing.T) {
 
 func TestAnalyze_amazon_login_fixture(t *testing.T) {
 	t.Parallel()
-	rep, err := Analyze(context.Background(), bytes.NewReader(amazonLoginFixture))
+	a := &Analyzer{}
+	rep, err := a.Analyze(context.Background(), bytes.NewReader(amazonLoginFixture))
 	if err != nil {
 		t.Fatal(err)
 	}

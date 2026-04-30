@@ -7,20 +7,17 @@ import (
 	"io"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/hhow09/page-insight-tool/internal/model"
 )
 
-// Report holds metrics extracted from a single HTML document.
-type Report struct {
-	HTMLVersion    string
-	HTMLVersionRaw string
-	Title          string // <title>
-	HeadingsCount  [6]int // index 0 = h1 … index 5 = h6
-	LoginForm      bool   // true if a password <input> appears inside a <form>
-	RawHrefs       []string
+type Analyzer struct{}
+
+func New() *Analyzer {
+	return &Analyzer{}
 }
 
 // Analyze parses HTML from r and extracts title, version, heading counts, login signal, and raw anchor hrefs.
-func Analyze(ctx context.Context, r io.Reader) (*Report, error) {
+func (a *Analyzer) Analyze(ctx context.Context, r io.Reader) (*model.AnalyzeReport, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -31,7 +28,7 @@ func Analyze(ctx context.Context, r io.Reader) (*Report, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	rep := &Report{}
+	rep := &model.AnalyzeReport{}
 	rep.HTMLVersion, rep.HTMLVersionRaw = detectHTMLVersion(body)
 	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
 	if err != nil {
