@@ -53,21 +53,21 @@ type linkChecker interface {
 	Summarize(ctx context.Context, baseUrl *url.URL, rawHrefs []string) (*model.LinkCheckSummary, error)
 }
 
-type ResolveHandler struct {
+type AnalyzeHandler struct {
 	fetcher     fetcher
 	analyzer    analyzer
 	linkChecker linkChecker
 }
 
-func NewResolveHandler(fetcher fetcher, analyzer analyzer, linkChecker linkChecker) http.Handler {
-	return &ResolveHandler{
+func NewAnalyzeHandler(fetcher fetcher, analyzer analyzer, linkChecker linkChecker) http.Handler {
+	return &AnalyzeHandler{
 		fetcher:     fetcher,
 		analyzer:    analyzer,
 		linkChecker: linkChecker,
 	}
 }
 
-func (h *ResolveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *AnalyzeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return

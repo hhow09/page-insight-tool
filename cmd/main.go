@@ -35,7 +35,7 @@ func main() {
 	fetcher := fetch.New(client, &cfg.Fetch)
 	analyzer := analyzer.New()
 	linkChecker := link_checker.New(client, &cfg.Link)
-	analyzeHandler := server.NewResolveHandler(fetcher, analyzer, linkChecker)
+	analyzeHandler := server.NewAnalyzeHandler(fetcher, analyzer, linkChecker)
 
 	slog.Info("Starting server", "address", fmt.Sprintf("http://%s", cfg.Server.Addr))
 	srv := server.New(&cfg.Server, analyzeHandler)
