@@ -8,17 +8,28 @@ import (
 	"github.com/hhow09/page-insight-tool/internal/config"
 )
 
-// Run listens on addr and blocks until the server stops or returns an error.
-func Run(addr string, config *config.Config) error {
+type Server struct {
+	cfg            *config.ServerConfig
+	analyzeHandler http.Handler
+}
+
+func New(cfg *config.ServerConfig, analyzeHandler http.Handler) *Server {
+	return &Server{
+		cfg:            cfg,
+		analyzeHandler: analyzeHandler,
+	}
+}
+
+func (s *Server) Run() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
-	mux.HandleFunc("/api/analyze", GetResolveHandler(config))
+	mux.Handle("/api/analyze", s.analyzeHandler)
 
 	fs := http.FileServer(http.Dir("frontend/dist"))
 	mux.Handle("/", fs)
 
 	srv := &http.Server{
-		Addr:              addr,
+		Addr:              s.cfg.Addr,
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
 	}

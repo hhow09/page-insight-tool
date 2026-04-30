@@ -15,7 +15,7 @@ import (
 	"github.com/hhow09/page-insight-tool/internal/model"
 )
 
-func NewLinkChecker(client *http.Client, cfg *config.LinkConfig) *LinkChecker {
+func New(client *http.Client, cfg *config.LinkConfig) *LinkChecker {
 	return &LinkChecker{
 		client: client,
 		cfg:    cfg,

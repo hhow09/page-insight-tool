@@ -10,8 +10,14 @@ import (
 	"github.com/hhow09/page-insight-tool/internal/model"
 )
 
+type Analyzer struct{}
+
+func New() *Analyzer {
+	return &Analyzer{}
+}
+
 // Analyze parses HTML from r and extracts title, version, heading counts, login signal, and raw anchor hrefs.
-func Analyze(ctx context.Context, r io.Reader) (*model.AnalyzeReport, error) {
+func (a *Analyzer) Analyze(ctx context.Context, r io.Reader) (*model.AnalyzeReport, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

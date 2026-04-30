@@ -8,13 +8,25 @@ import (
 	"strings"
 	"testing"
 
+	testanalyzer "github.com/hhow09/page-insight-tool/internal/analyzer"
 	"github.com/hhow09/page-insight-tool/internal/config"
+	"github.com/hhow09/page-insight-tool/internal/fetch"
+	"github.com/hhow09/page-insight-tool/internal/httpclient"
+	"github.com/hhow09/page-insight-tool/internal/link_checker"
 )
+
+func newTestResolveHandler(t *testing.T) http.Handler {
+	cfg := config.Default()
+	client := httpclient.New(&cfg.HTTPClient)
+	fetcher := fetch.New(client, &cfg.Fetch)
+	linkChecker := link_checker.New(client, &cfg.Link)
+	analyzer := &testanalyzer.Analyzer{}
+	return NewResolveHandler(fetcher, analyzer, linkChecker)
+}
 
 func TestResolve_MethodNotAllowed(t *testing.T) {
 	t.Parallel()
-	cfg := config.Default()
-	handler := GetResolveHandler(cfg)
+	handler := newTestResolveHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/analyze", nil)
 	rec := httptest.NewRecorder()
@@ -27,8 +39,7 @@ func TestResolve_MethodNotAllowed(t *testing.T) {
 
 func TestResolve_InvalidBody(t *testing.T) {
 	t.Parallel()
-	cfg := config.Default()
-	handler := GetResolveHandler(cfg)
+	handler := newTestResolveHandler(t)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/analyze", strings.NewReader(`{invalid json`))
 	rec := httptest.NewRecorder()
@@ -41,8 +52,7 @@ func TestResolve_InvalidBody(t *testing.T) {
 
 func TestResolve_EmptyURL(t *testing.T) {
 	t.Parallel()
-	cfg := config.Default()
-	handler := GetResolveHandler(cfg)
+	handler := newTestResolveHandler(t)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/analyze", strings.NewReader(`{"url": ""}`))
 	rec := httptest.NewRecorder()
@@ -96,9 +106,7 @@ func TestResolve_Success(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Default()
-
-	handler := GetResolveHandler(cfg)
+	handler := newTestResolveHandler(t)
 
 	reqBody := fmt.Sprintf(`{"url": "%s"}`, srv.URL)
 	req := httptest.NewRequest(http.MethodPost, "/api/analyze", strings.NewReader(reqBody))
@@ -154,8 +162,7 @@ func TestResolve_Success(t *testing.T) {
 
 func TestResolve_FetchFails(t *testing.T) {
 	t.Parallel()
-	cfg := config.Default()
-	handler := GetResolveHandler(cfg)
+	handler := newTestResolveHandler(t)
 
 	// Fetch to a bad port that refuses connection, or a dummy URL that fails quickly
 	reqBody := `{"url": "http://127.0.0.1:0"}`

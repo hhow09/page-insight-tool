@@ -65,7 +65,7 @@ func TestSummarize_internalExternal_and_inaccessible(t *testing.T) {
 func TestSummarize_nil_page(t *testing.T) {
 	t.Parallel()
 	cfg := config.Default()
-	lc := NewLinkChecker(httpclient.New(&cfg.HTTPClient), &cfg.Link)
+	lc := New(httpclient.New(&cfg.HTTPClient), &cfg.Link)
 	summary, err := lc.Summarize(context.Background(), nil, []string{"/"})
 	if err == nil {
 		t.Fatal("expected error")
@@ -98,7 +98,7 @@ func TestSummarize_deduplication(t *testing.T) {
 		"/ok",
 	}
 
-	lc := NewLinkChecker(httpclient.New(&cfg.HTTPClient), &cfg.Link)
+	lc := New(httpclient.New(&cfg.HTTPClient), &cfg.Link)
 	summary, err := lc.Summarize(context.Background(), origin, raw)
 	if err != nil {
 		t.Fatal(err)

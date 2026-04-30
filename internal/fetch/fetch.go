@@ -17,7 +17,7 @@ import (
 
 const htmlContentType = "text/html"
 
-func NewFetcher(client *http.Client, cfg *config.FetchConfig) *Fetcher {
+func New(client *http.Client, cfg *config.FetchConfig) *Fetcher {
 	return &Fetcher{
 		client: client,
 		cfg:    cfg,
